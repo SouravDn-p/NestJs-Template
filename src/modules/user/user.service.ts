@@ -21,8 +21,10 @@ export class UserService {
 
     // Create new user
     const createdUser = new this.userModel({
+      firstName: createUserDto.firstName,
+      lastName: createUserDto.lastName,
       email: createUserDto.email,
-      password: createUserDto.password, // Password will be hashed by pre-save hook
+      password: createUserDto.password,
       role: createUserDto.role || UserRole.USER,
     });
 
@@ -30,9 +32,21 @@ export class UserService {
 
     // Return user without password
     const userObject = savedUser.toObject();
-    const { password: _password, ...result } = userObject;
+    const { password: _password, ...result } = userObject as {
+      password: string;
+      _id: import('mongoose').Types.ObjectId;
+      firstName: string;
+      lastName: string;
+      email: string;
+      role: string;
+      isActive: boolean;
+      refreshToken?: string;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return {
-      _id: (result._id as any)?.toString() || '',
+      _id: result._id.toString(),
+      firstName: result.firstName,
+      lastName: result.lastName,
       email: result.email,
       role: result.role,
       isActive: result.isActive,
@@ -48,9 +62,21 @@ export class UserService {
     const user = await this.userModel.findById(id).select('-password').exec();
     if (!user) return null;
     const userObject = user.toObject();
-    const { password: _password, ...result } = userObject;
+    const { password: _password, ...result } = userObject as {
+      password: string;
+      _id: import('mongoose').Types.ObjectId;
+      firstName: string;
+      lastName: string;
+      email: string;
+      role: string;
+      isActive: boolean;
+      refreshToken?: string;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return {
-      _id: (result._id as any)?.toString() || '',
+      _id: result._id.toString(),
+      firstName: result.firstName,
+      lastName: result.lastName,
       email: result.email,
       role: result.role,
       isActive: result.isActive,
@@ -86,9 +112,21 @@ export class UserService {
     const users = await this.userModel.find().select('-password').exec();
     return users.map((user) => {
       const userObject = user.toObject();
-      const { password: _password, ...result } = userObject;
+      const { password: _password, ...result } = userObject as {
+        password: string;
+        _id: import('mongoose').Types.ObjectId;
+        firstName: string;
+        lastName: string;
+        email: string;
+        role: string;
+        isActive: boolean;
+        refreshToken?: string;
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       return {
-        _id: (result._id as any).toString(),
+        _id: result._id.toString(),
+        firstName: result.firstName,
+        lastName: result.lastName,
         email: result.email,
         role: result.role,
         isActive: result.isActive,

@@ -4,10 +4,19 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  IsNotEmpty,
 } from 'class-validator';
-import { UserRole } from '../../user/schemas/user.schema';
+import { UserRole } from '../schemas/user.schema';
 
 export class CreateUserDto {
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+
   @IsEmail()
   email: string;
 

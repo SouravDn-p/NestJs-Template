@@ -9,6 +9,12 @@ export enum UserRole {
 
 @Schema({ timestamps: true })
 export class User extends Document {
+  @Prop({ required: true })
+  firstName: string;
+
+  @Prop({ required: true })
+  lastName: string;
+
   @Prop({ required: true, unique: true })
   email: string;
 
@@ -38,18 +44,15 @@ export type UserDocument = User &
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Hash password before saving
-UserSchema.pre(
-  'save',
-  async function (this: UserDocument, next: (err?: Error) => void) {
-    if (!this.isModified('password')) {
-      return next();
-    }
+UserSchema.pre<UserDocument>('save', async function () {
+  if (!this.isModified('password')) {
+    return;
+  }
 
-    const saltRounds = 10;
-    this.password = await bcrypt.hash(this.password, saltRounds);
-    next();
-  },
-);
+  const saltRounds = 10;
+  const hash = await bcrypt.hash(this.password, saltRounds);
+  this.password = hash;
+});
 
 // Method to compare passwords
 UserSchema.methods.comparePassword = async function (

@@ -28,6 +28,8 @@ export class AuthService {
 
     // Create new user
     const user = await this.userService.createUser({
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
       email: registerDto.email,
       password: registerDto.password,
     });
@@ -41,7 +43,13 @@ export class AuthService {
     await this.updateRefreshToken(user._id.toString(), tokens.refreshToken);
 
     return {
-      user: { id: user._id, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
       ...tokens,
     };
   }
@@ -68,7 +76,13 @@ export class AuthService {
     await this.updateRefreshToken(user._id.toString(), tokens.refreshToken);
 
     return {
-      user: { id: user._id, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
       ...tokens,
     };
   }

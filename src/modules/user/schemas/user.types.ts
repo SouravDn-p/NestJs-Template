@@ -13,6 +13,8 @@ export interface AuthenticatedUser {
 // User type without password for security
 export interface UserWithoutPassword {
   _id: string;
+  firstName: string;
+  lastName: string;
   email: string;
   role: string;
   isActive: boolean;
