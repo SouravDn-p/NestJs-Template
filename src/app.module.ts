@@ -1,16 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { UserModule } from './user/user.module';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from './config/config.module';
+import { DatabaseModule } from './infrastructure/database/mongoose.module';
+import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    UserModule,
-    MongooseModule.forRoot(process.env.MONGODB_URL as string),
-  ],
+  imports: [ConfigModule, DatabaseModule, UserModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
