@@ -23,9 +23,11 @@ import {
 import { User } from '../../common/decorators/user.decorator';
 // Define the user type directly to avoid import issues
 interface AuthenticatedUser {
-  userId: string;
+  _id: string;
   email: string;
   role: string;
+  firstName: string;
+  lastName: string;
 }
 
 @Controller('auth')
@@ -34,6 +36,7 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
+    // Combine firstName and lastName for compatibility with frontend expectations
     const result = await this.authService.register(registerDto);
 
     // Set auth cookies
@@ -43,7 +46,12 @@ export class AuthController {
       statusCode: HttpStatus.CREATED,
       message: 'User registered successfully',
       data: {
-        user: result.user,
+        user: {
+          ...result.user,
+          // Map to match frontend expectation
+          name: `${result.user.firstName} ${result.user.lastName}`,
+          email: result.user.email,
+        },
       },
     });
   }
@@ -53,10 +61,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() loginDto: LoginDto,
-    @Req() req: Request,
+    @User() user: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(user);
 
     // Set auth cookies
     setAuthCookies(res, result.accessToken, result.refreshToken);
@@ -64,8 +72,15 @@ export class AuthController {
     return res.status(HttpStatus.OK).json({
       statusCode: HttpStatus.OK,
       message: 'Login successful',
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       data: {
-        user: result.user,
+        user: {
+          ...result.user,
+          name: `${result.user.firstName} ${result.user.lastName}`,
+          email: result.user.email,
+          roles: [result.user.role],
+        },
       },
     });
   }
@@ -74,7 +89,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@User() user: AuthenticatedUser, @Res() res: Response) {
-    await this.authService.logout(user.userId);
+    await this.authService.logout(user._id);
 
     // Clear auth cookies
     clearAuthCookies(res);
@@ -93,9 +108,9 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const refreshToken = req.cookies?.refresh_token;
+    const refreshToken = req.cookies?.refresh_token as string;
     const tokens = await this.authService.refreshTokens(
-      user.userId,
+      user._id,
       refreshToken,
     );
 
@@ -112,14 +127,26 @@ export class AuthController {
   @Get('profile')
   @HttpCode(HttpStatus.OK)
   async getProfile(@User() user: AuthenticatedUser, @Res() res: Response) {
+    // Get full user data from the database
+    const fullUser = await this.authService.getUserById(user._id);
+
+    if (!fullUser) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        statusCode: HttpStatus.NOT_FOUND,
+        message: 'User not found',
+      });
+    }
+
     return res.status(HttpStatus.OK).json({
       statusCode: HttpStatus.OK,
       message: 'Profile retrieved successfully',
       data: {
         user: {
-          id: user.userId,
+          id: user._id,
           email: user.email,
           role: user.role,
+          name: `${fullUser.firstName} ${fullUser.lastName}`,
+          roles: [fullUser.role],
         },
       },
     });

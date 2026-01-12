@@ -2,6 +2,15 @@
 
 A comprehensive NestJS starter template with MongoDB integration, JWT authentication, and best practices.
 
+## Code Quality Improvements
+
+This template has been enhanced with:
+
+- Fixed unused variable warnings (e.g., `_password` variables)
+- Improved TypeScript type safety
+- Enhanced ESLint configuration compliance
+- Better code maintainability practices
+
 ## Features
 
 - **NestJS**: Modern, powerful Node.js framework

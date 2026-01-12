@@ -32,6 +32,7 @@ export class UserService {
 
     // Return user without password
     const userObject = savedUser.toObject();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...result } = userObject as {
       password: string;
       _id: import('mongoose').Types.ObjectId;
@@ -42,7 +43,6 @@ export class UserService {
       isActive: boolean;
       refreshToken?: string;
     };
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return {
       _id: result._id.toString(),
       firstName: result.firstName,
@@ -62,6 +62,7 @@ export class UserService {
     const user = await this.userModel.findById(id).select('-password').exec();
     if (!user) return null;
     const userObject = user.toObject();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...result } = userObject as {
       password: string;
       _id: import('mongoose').Types.ObjectId;
@@ -72,7 +73,6 @@ export class UserService {
       isActive: boolean;
       refreshToken?: string;
     };
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return {
       _id: result._id.toString(),
       firstName: result.firstName,
@@ -112,6 +112,7 @@ export class UserService {
     const users = await this.userModel.find().select('-password').exec();
     return users.map((user) => {
       const userObject = user.toObject();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: _password, ...result } = userObject as {
         password: string;
         _id: import('mongoose').Types.ObjectId;
@@ -122,7 +123,6 @@ export class UserService {
         isActive: boolean;
         refreshToken?: string;
       };
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       return {
         _id: result._id.toString(),
         firstName: result.firstName,

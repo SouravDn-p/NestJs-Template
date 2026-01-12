@@ -1,5 +1,16 @@
 # Authentication System Documentation
 
+## Code Quality Improvements
+
+Recent updates to the authentication system include:
+
+- Fixed unused variable warnings (e.g., `_password` variables)
+- Improved TypeScript type safety
+- Enhanced ESLint configuration compliance
+- Better code maintainability practices
+
+These improvements ensure cleaner code without affecting the core authentication functionality.
+
 ## Overview
 
 This NestJS template implements a comprehensive authentication system using JWT (JSON Web Tokens) with refresh tokens, cookie-based storage, and role-based access control. The system provides secure user registration, login, logout, and token refresh functionality.

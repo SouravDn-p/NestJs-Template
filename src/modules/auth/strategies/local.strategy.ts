@@ -22,7 +22,17 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
 
     // Return user without password
     const userObj = user.toObject();
-    const { password: _password, ...result } = userObj;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _password, ...result } = userObj as {
+      password: string;
+      _id: import('mongoose').Types.ObjectId;
+      firstName: string;
+      lastName: string;
+      email: string;
+      role: string;
+      isActive: boolean;
+      refreshToken?: string;
+    };
     return result;
   }
 }

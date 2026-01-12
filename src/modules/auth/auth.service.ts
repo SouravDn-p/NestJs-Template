@@ -54,19 +54,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
-    // Find user by email
-    const user = await this.userService.findByEmailWithPassword(loginDto.email);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Validate password
-    const isValidPassword = await user.comparePassword(loginDto.password);
-    if (!isValidPassword) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
+  async login(user: any) {
     // Generate tokens
     const tokens = await this.generateTokens(
       user._id.toString(),
@@ -160,5 +148,9 @@ export class AuthService {
   private async updateRefreshToken(userId: string, refreshToken: string) {
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     await this.userService.updateRefreshToken(userId, hashedRefreshToken);
+  }
+
+  async getUserById(userId: string) {
+    return this.userService.findOne(userId);
   }
 }
