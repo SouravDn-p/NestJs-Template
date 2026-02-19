@@ -1,302 +1,299 @@
 # Authentication System Documentation
 
-## Code Quality Improvements
+This document describes the authentication system implemented in the NestJS backend application.
 
-Recent updates to the authentication system include:
-
-- Fixed unused variable warnings (e.g., `_password` variables)
-- Improved TypeScript type safety
-- Enhanced ESLint configuration compliance
-- Better code maintainability practices
-
-These improvements ensure cleaner code without affecting the core authentication functionality.
+## Table of Contents
+- [Overview](#overview)
+- [Token Structure](#token-structure)
+- [Login Process](#login-process)
+- [Register Process](#register-process)
+- [Refresh Token Process](#refresh-token-process)
+- [Authorization & Role-Based Access Control](#authorization--role-based-access-control)
+- [API Endpoints](#api-endpoints)
+- [API Response Structure](#api-response-structure)
+- [Security Features](#security-features)
+- [Error Handling](#error-handling)
 
 ## Overview
 
-This NestJS template implements a comprehensive authentication system using JWT (JSON Web Tokens) with refresh tokens, cookie-based storage, and role-based access control. The system provides secure user registration, login, logout, and token refresh functionality.
+The authentication system uses JWT (JSON Web Tokens) with a dual-token approach:
+- **Access Token**: Short-lived (15 minutes) for API authorization
+- **Refresh Token**: Long-lived (7 days) for generating new access tokens
+- Tokens are stored in HTTP-only cookies for enhanced security
 
-## Architecture
-
-### Core Components
-
-1. **Auth Module**: Main authentication module containing controllers, services, and strategies
-2. **JWT Strategies**: Access token and refresh token validation strategies
-3. **Local Strategy**: Username/password authentication using Passport
-4. **Guards**: JWT, Refresh token, and Local authentication guards
-5. **Cookie Utilities**: Secure cookie handling for token storage
-
-### Authentication Flow
-
-```
-User Registration → Hash Password → Create User → Generate Tokens → Store Refresh Token
-User Login → Validate Credentials → Generate Tokens → Set Cookies
-Token Refresh → Validate Refresh Token → Generate New Tokens → Update Cookies
-User Request → Validate Access Token → Authorize → Process Request
-User Logout → Clear Refresh Token → Clear Cookies
-```
-
-## Implementation Details
-
-### 1. User Registration (`POST /auth/register`)
-
-- Validates input using `RegisterDto`
-- Checks for existing user with same email
-- Hashes password using bcrypt
-- Creates user document in MongoDB
-- Generates access and refresh tokens
-- Sets secure cookies with tokens
-- Returns user information
-
-### 2. User Login (`POST /auth/login`)
-
-- Uses `LocalAuthGuard` with Passport's local strategy
-- Validates email and password
-- Generates access and refresh tokens
-- Sets secure cookies with tokens
-- Returns user information
-
-### 3. Token Refresh (`POST /auth/refresh`)
-
-- Uses `RefreshTokenGuard` to validate refresh token
-- Verifies refresh token matches stored value in database
-- Generates new access and refresh tokens
-- Updates stored refresh token
-- Sets new secure cookies with tokens
-
-### 4. Profile Access (`GET /auth/profile`)
-
-- Uses `JwtAuthGuard` to validate access token
-- Returns authenticated user information
-- Includes user ID, email, and role
-
-### 5. Logout (`POST /auth/logout`)
-
-- Uses `JwtAuthGuard` to validate access token
-- Clears refresh token from database
-- Clears authentication cookies
-- Completes logout process
-
-## Security Features
-
-### Password Security
-
-- All passwords are hashed using bcrypt with configurable salt rounds
-- Passwords are never stored in plain text
-- Password comparison happens in the User schema methods
-
-### Token Security
-
-- Access tokens: Short-lived (default 15 minutes)
-- Refresh tokens: Long-lived (default 7 days) but stored in database
-- Refresh token rotation: New refresh token generated on each use
-- Tokens are stored in HttpOnly, Secure cookies to prevent XSS attacks
-
-### Cookie Security
-
-- HttpOnly: Prevents client-side JavaScript access
-- Secure: Only transmitted over HTTPS in production
-- SameSite: Prevents CSRF attacks
-- Tokens are not accessible to frontend JavaScript
-
-## JWT Configuration
+## Token Structure
 
 ### Access Token
-
-- Secret: Configured via `ACCESS_TOKEN_SECRET` environment variable
-- Expiration: Configured via `ACCESS_TOKEN_EXPIRATION` (default: 15m)
-- Algorithm: HS256
-- Payload: User ID, email, and role
+- **Lifetime**: 15 minutes
+- **Purpose**: API authorization
+- **Storage**: HTTP-only cookie (`accessToken`)
+- **Algorithm**: HS256
+- **Claims**: `sub` (user ID), `email`, `role`
 
 ### Refresh Token
+- **Lifetime**: 7 days
+- **Purpose**: Generate new access tokens
+- **Storage**: HTTP-only cookie (`refreshToken`) and hashed in database
+- **Algorithm**: HS256
+- **Claims**: `sub` (user ID), `email`, `role`
 
-- Secret: Configured via `REFRESH_TOKEN_SECRET` environment variable
-- Expiration: Configured via `REFRESH_TOKEN_EXPIRATION` (default: 7d)
-- Algorithm: HS256
-- Payload: User ID, email, and role
-- Stored in database for additional validation
+## Login Process
 
-## Passport Strategies
+### Flow
+1. User sends credentials (email, password) to `/auth/login`
+2. Server validates credentials against the database
+3. If valid, server generates access and refresh tokens
+4. Server hashes refresh token and stores in database
+5. Server sets both tokens in HTTP-only cookies
+6. Server returns access token and user data (without refresh token)
 
-### Local Strategy
+### Request
+```http
+POST /auth/login
+Content-Type: application/json
 
-- Validates email and password credentials
-- Uses email as the username field
-- Retrieves user with password for comparison
-- Throws UnauthorizedException for invalid credentials
-
-### JWT Access Token Strategy
-
-- Extracts token from cookies (`access_token`)
-- Validates token signature and expiration
-- Verifies user still exists and is active
-- Returns user information for request context
-
-### JWT Refresh Token Strategy
-
-- Extracts token from cookies (`refresh_token`)
-- Validates token signature and expiration
-- Verifies user still exists and is active
-- Confirms refresh token matches stored value in database
-- Returns user information for request context
-
-## Guards Implementation
-
-### JwtAuthGuard
-
-- Protects routes requiring valid access token
-- Used for standard authenticated routes
-- Extends Passport's JWT guard
-
-### RefreshTokenGuard
-
-- Protects refresh token endpoint
-- Extends Passport's JWT guard with custom strategy
-- Validates refresh token specifically
-
-### LocalAuthGuard
-
-- Protects login endpoint
-- Extends Passport's local guard
-- Handles username/password authentication
-
-## DTOs (Data Transfer Objects)
-
-### RegisterDto
-
-```typescript
 {
-  email: string; // Required, valid email format
-  password: string; // Required, minimum length validation
+  "email": "user@example.com",
+  "password": "user_password"
 }
 ```
 
-### LoginDto
-
-```typescript
+### Response
+```json
 {
-  email: string; // Required, valid email format
-  password: string; // Required
+  "statusCode": 200,
+  "timestamp": "2026-02-18T09:00:00.000Z",
+  "message": "Login successful",
+  "path": "/auth/login",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "_id": "69949188a9858535c61d2e72",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@example.com",
+      "role": "user",
+      "image": null
+    }
+  }
 }
 ```
 
-## User Roles
+### Cookies Set
+- `accessToken`: HTTP-only, secure, SameSite=strict, expires in 15 minutes
+- `refreshToken`: HTTP-only, secure, SameSite=strict, expires in 7 days
 
-### Available Roles
+## Register Process
 
-- `USER`: Standard user with basic access
-- `MODERATOR`: Enhanced permissions (implementation ready)
-- `ADMIN`: Full administrative access (implementation ready)
+### Flow
+1. User sends registration data to `/auth/register`
+2. Server validates the input
+3. Server checks if email already exists
+4. If not, server creates a new user with hashed password
+5. Server returns success response
 
-### Role Implementation
+### Request
+```http
+POST /auth/register
+Content-Type: application/json
 
-- Role-based access control is implemented and ready for use
-- Can be extended with custom guards for role-specific permissions
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "password": "secure_password",
+  "role": "user"
+}
+```
 
-## Cookie Management
+### Response
+```json
+{
+  "statusCode": 201,
+  "timestamp": "2026-02-18T09:00:00.000Z",
+  "message": "User created successfully",
+  "path": "/auth/register",
+  "data": {
+    "_id": "69949188a9858535c61d2e72",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "role": "user",
+    "image": null
+  }
+}
+```
 
-### Authentication Cookies
+## Refresh Token Process
 
-- `access_token`: Stores JWT access token
-- `refresh_token`: Stores JWT refresh token
-- Both cookies are HttpOnly and secure
+### Flow
+1. Access token expires (after 15 minutes)
+2. Client automatically sends refresh request to `/auth/refresh`
+3. Server validates refresh token from cookie against database
+4. Server generates new access and refresh tokens (token rotation)
+5. Server hashes new refresh token and stores in database
+6. Server sets new tokens in HTTP-only cookies
+7. Server returns new access token
 
-### Cookie Utility Functions
+### Request
+```http
+POST /auth/refresh
+Cookie: refreshToken=<current_refresh_token>
+```
 
-- `setAuthCookies()`: Sets both access and refresh token cookies
-- `clearAuthCookies()`: Clears authentication cookies on logout
+### Response
+```json
+{
+  "statusCode": 200,
+  "timestamp": "2026-02-18T09:15:00.000Z",
+  "message": "Token refreshed successfully",
+  "path": "/auth/refresh",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
 
-## Error Handling
+### Cookies Updated
+- `accessToken`: New token, expires in 15 minutes
+- `refreshToken`: New token, expires in 7 days (token rotation)
 
-### Common Authentication Errors
+### Refresh Token Expiration Handling
+- If refresh token is expired or invalid, server returns 401 Unauthorized
+- Client should redirect user to login page
+- Refresh tokens are invalidated when user logs out or after 7 days
 
-- `ConflictException`: User already exists during registration
-- `UnauthorizedException`: Invalid credentials during login
-- `UnauthorizedException`: Invalid or expired tokens
-- `Error`: User not found or inactive during token validation
+## Authorization & Role-Based Access Control
 
-### Error Response Format
+The system implements role-based access control with the following roles:
+
+### User Roles
+- `user`: Standard user role
+- `admin`: Administrator role with elevated permissions
+
+### Protected Routes
+Routes can be protected using JWT guards and role decorators:
+
+```typescript
+@Get('admin-data')
+@UseGuards(AuthGuard('jwt'))
+@Roles(UserRole.ADMIN)
+async getAdminData() {
+  // Only accessible by admin users
+}
+```
+
+### Authorization Flow
+1. User makes request to protected endpoint
+2. Server extracts access token from `accessToken` cookie
+3. Server validates token signature and expiration
+4. Server verifies user exists in database
+5. If route requires specific role, server checks user role
+6. If all validations pass, server processes request
+7. If any validation fails, server returns 401/403 error
+
+## API Endpoints
+
+### Authentication Endpoints
+| Method | Endpoint | Description | Requires Auth |
+|--------|----------|-------------|---------------|
+| POST | `/auth/register` | Register new user | No |
+| POST | `/auth/login` | Authenticate user | No |
+| POST | `/auth/refresh` | Refresh access token | No (uses refresh token) |
+| POST | `/auth/logout` | Log out user | Yes (access token) |
+
+### User Endpoints
+| Method | Endpoint | Description | Requires Auth |
+|--------|----------|-------------|---------------|
+| GET | `/users` | Get all users | Yes (access token) |
+| GET | `/users/admin` | Get admin users | Yes (access token + admin role) |
+
+## API Response Structure
+
+All API responses follow a consistent structure:
 
 ```json
 {
-  "statusCode": 400/401/403/409,
-  "message": "Error description",
-  "error": "Error type"
+  "statusCode": 200,
+  "timestamp": "2026-02-18T09:00:00.000Z",
+  "message": "Success message",
+  "path": "/endpoint/path",
+  "data": {
+    // Actual response data
+  }
 }
 ```
 
-## Configuration
+### Response Fields
+- `statusCode`: HTTP status code (200, 201, 400, 401, 403, 500, etc.)
+- `timestamp`: ISO 8601 formatted timestamp
+- `message`: Human-readable message about the operation
+- `path`: The requested endpoint path
+- `data`: Actual response data (can be null/undefined for some operations)
 
-### Environment Variables
+## Security Features
 
-- `ACCESS_TOKEN_SECRET`: Secret for signing access tokens
-- `ACCESS_TOKEN_EXPIRATION`: Access token expiration time
-- `REFRESH_TOKEN_SECRET`: Secret for signing refresh tokens
-- `REFRESH_TOKEN_EXPIRATION`: Refresh token expiration time
-- `BCRYPT_SALT_OR_ROUND`: Salt rounds for password hashing
+### Token Security
+- **HTTP-only cookies**: Prevents XSS attacks
+- **Secure flag**: Tokens only sent over HTTPS
+- **SameSite=strict**: Prevents CSRF attacks
+- **Hashed storage**: Refresh tokens hashed in database
+- **Token rotation**: New refresh tokens on each refresh
 
-### Default Values
+### Password Security
+- **BCrypt hashing**: Passwords stored with salt and hash
+- **Salt rounds**: 10 rounds for strong security
 
-- Access token: 15 minutes
-- Refresh token: 7 days
-- Bcrypt salt: 10 rounds
+### Additional Security
+- **Rate limiting**: Prevents brute force attacks
+- **Input validation**: All inputs validated and sanitized
+- **Error masking**: Generic error messages to prevent information disclosure
 
-## Security Best Practices
+## Error Handling
 
-1. **Never expose secrets**: Store all secrets in environment variables
-2. **Use HTTPS in production**: Secure cookies only work properly with HTTPS
-3. **Validate input**: All user input is validated using DTOs
-4. **Hash passwords**: Never store plain text passwords
-5. **Token rotation**: Refresh tokens are rotated to prevent abuse
-6. **Database validation**: Refresh tokens stored in database for additional validation
-7. **Cookie security**: HttpOnly and Secure flags prevent XSS attacks
+### Common Error Responses
 
-## Testing Authentication
+#### Unauthorized (401)
+```json
+{
+  "success": false,
+  "message": "Unauthorized",
+  "meta": {
+    "statusCode": 401,
+    "error": "UnauthorizedException"
+  }
+}
+```
 
-### Unit Tests
+#### Forbidden (403)
+```json
+{
+  "success": false,
+  "message": "Forbidden",
+  "meta": {
+    "statusCode": 403,
+    "error": "ForbiddenException"
+  }
+}
+```
 
-- Service methods for authentication operations
-- Token generation and validation
-- Password hashing and comparison
+#### Validation Error (400)
+```json
+{
+  "success": false,
+  "message": "Bad Request",
+  "meta": {
+    "statusCode": 400,
+    "error": "BadRequestException"
+  },
+  "error": {
+    // Validation error details
+  }
+}
+```
 
-### Integration Tests
-
-- Complete authentication flow
-- Token refresh functionality
-- Logout and session invalidation
-
-## Extending Authentication
-
-### Adding New Roles
-
-1. Update `UserRole` enum in `user.types.ts`
-2. Implement role-based guards if needed
-3. Add role validation in relevant services
-
-### Adding New Authentication Methods
-
-1. Create new Passport strategy
-2. Add new guard extending the strategy
-3. Update AuthModule to include new strategy
-4. Create new endpoints if needed
-
-### Custom Token Payload
-
-1. Modify JWT payload in `AuthService`
-2. Update strategy validation in `validate()` method
-3. Update user information extraction as needed
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Token expiration**: Check `ACCESS_TOKEN_EXPIRATION` and `REFRESH_TOKEN_EXPIRATION` settings
-2. **Invalid tokens**: Ensure secrets match between token generation and validation
-3. **Cookie issues**: Verify that cookies are being set correctly in the browser
-4. **Database connection**: Ensure MongoDB is accessible and properly configured
-
-### Debugging Tips
-
-1. Enable NestJS logging to see authentication flow
-2. Check environment variables are properly set
-3. Verify database contains expected user and token data
-4. Use browser developer tools to inspect cookies
+### Token-Specific Errors
+- **Expired access token**: Automatically triggers refresh process
+- **Invalid refresh token**: User redirected to login
+- **Revoked refresh token**: User redirected to login
+- **Malformed token**: Returns 401 Unauthorized

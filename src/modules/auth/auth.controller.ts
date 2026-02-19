@@ -1,154 +1,162 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
+  Body,
   Controller,
   Post,
-  Body,
-  Res,
-  Get,
   UseGuards,
   Req,
+  Res,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RefreshTokenGuard } from '../../common/guards/refresh-token.guard';
-import {
-  setAuthCookies,
-  clearAuthCookies,
-} from '../../common/utils/cookie.util';
-import { User } from '../../common/decorators/user.decorator';
-// Define the user type directly to avoid import issues
-interface AuthenticatedUser {
-  _id: string;
-  email: string;
-  role: string;
-  firstName: string;
-  lastName: string;
+import { CreateUserDto } from '../users/user-dto/create-user-dto';
+import type {
+  CreateUserResponse,
+  UserCredentials,
+} from '../users/schemas/userType';
+import { GlobalResponse } from '../../common/response/global-response.interface';
+import { AuthGuard } from '@nestjs/passport';
+import type { Request, Response } from 'express';
+
+// Extend the Request interface to include user property
+interface RequestWithUser extends Request {
+  user: {
+    userId: string;
+    email: string;
+    role: string;
+  };
 }
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
-    // Combine firstName and lastName for compatibility with frontend expectations
-    const result = await this.authService.register(registerDto);
-
-    // Set auth cookies
-    setAuthCookies(res, result.accessToken, result.refreshToken);
-
-    return res.status(HttpStatus.CREATED).json({
-      statusCode: HttpStatus.CREATED,
-      message: 'User registered successfully',
-      data: {
-        user: {
-          ...result.user,
-          // Map to match frontend expectation
-          name: `${result.user.firstName} ${result.user.lastName}`,
-          email: result.user.email,
-        },
-      },
-    });
+  async register(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<GlobalResponse<CreateUserResponse>> {
+    return await this.authService.CreateUser(createUserDto);
   }
 
-  @UseGuards(LocalAuthGuard)
+  @HttpCode(HttpStatus.OK)
   @Post('login')
-  @HttpCode(HttpStatus.OK)
   async login(
-    @Body() loginDto: LoginDto,
-    @User() user: AuthenticatedUser,
-    @Res() res: Response,
+    @Body() credentials: UserCredentials,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.authService.login(user);
-
-    // Set auth cookies
-    setAuthCookies(res, result.accessToken, result.refreshToken);
-
-    return res.status(HttpStatus.OK).json({
-      statusCode: HttpStatus.OK,
-      message: 'Login successful',
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      data: {
-        user: {
-          ...result.user,
-          name: `${result.user.firstName} ${result.user.lastName}`,
-          email: result.user.email,
-          roles: [result.user.role],
-        },
-      },
-    });
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  async logout(@User() user: AuthenticatedUser, @Res() res: Response) {
-    await this.authService.logout(user._id);
-
-    // Clear auth cookies
-    clearAuthCookies(res);
-
-    return res.status(HttpStatus.OK).json({
-      statusCode: HttpStatus.OK,
-      message: 'Logout successful',
-    });
-  }
-
-  @UseGuards(RefreshTokenGuard)
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  async refresh(
-    @User() user: AuthenticatedUser,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
-    const refreshToken = req.cookies?.refresh_token as string;
-    const tokens = await this.authService.refreshTokens(
-      user._id,
-      refreshToken,
-    );
-
-    // Set new auth cookies
-    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
-
-    return res.status(HttpStatus.OK).json({
-      statusCode: HttpStatus.OK,
-      message: 'Tokens refreshed successfully',
-    });
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  @HttpCode(HttpStatus.OK)
-  async getProfile(@User() user: AuthenticatedUser, @Res() res: Response) {
-    // Get full user data from the database
-    const fullUser = await this.authService.getUserById(user._id);
-
-    if (!fullUser) {
-      return res.status(HttpStatus.NOT_FOUND).json({
-        statusCode: HttpStatus.NOT_FOUND,
-        message: 'User not found',
-      });
+    const user = await this.authService.validateUser(credentials);
+    if (!user) {
+      return {
+        data: null,
+        message: 'Invalid credentials',
+      };
     }
 
-    return res.status(HttpStatus.OK).json({
-      statusCode: HttpStatus.OK,
-      message: 'Profile retrieved successfully',
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          role: user.role,
-          name: `${fullUser.firstName} ${fullUser.lastName}`,
-          roles: [fullUser.role],
-        },
-      },
+    const result = await this.authService.login(user);
+
+    // Set access token cookie
+    response.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
     });
+
+    // Set refresh token cookie (HTTP-only for security)
+    // Store the actual refresh token in the cookie
+    response.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Return response without refreshToken in data
+    return {
+      statusCode: 200,
+      timestamp: new Date().toISOString(),
+      message: result.message,
+      path: '/auth/login',
+      data: {
+        accessToken: result.accessToken,
+        user: result.user,
+      },
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt-refresh'))
+  @Post('refresh')
+  async refresh(
+    @Req() request: RequestWithUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = request.user;
+
+    // Get the actual refresh token from the cookie
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const currentRefreshToken = request.cookies?.refreshToken;
+
+    if (!currentRefreshToken) {
+      return {
+        data: null,
+        message: 'Refresh token not found',
+      };
+    }
+
+    // Pass the user ID and the current refresh token to the service
+    const result = await this.authService.refresh(
+      user.userId,
+      currentRefreshToken,
+    );
+
+    // Set new access token cookie
+    response.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    // Set new refresh token cookie (token rotation)
+    response.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Return response with new access token only
+    return {
+      statusCode: 200,
+      timestamp: new Date().toISOString(),
+      message: result.message,
+      path: '/auth/refresh',
+      data: {
+        accessToken: result.accessToken,
+      },
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  async logout(
+    @Req() request: RequestWithUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = request.user;
+    const result = await this.authService.logout(user.userId);
+
+    // Clear cookies
+    response.clearCookie('accessToken');
+    response.clearCookie('refreshToken');
+
+    return {
+      statusCode: 200,
+      timestamp: new Date().toISOString(),
+      message: result.message,
+      path: '/auth/logout',
+      data: result.data,
+    };
   }
 }

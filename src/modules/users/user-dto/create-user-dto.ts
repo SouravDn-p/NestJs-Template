@@ -26,9 +26,9 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsEnum(UserRole)
-  role?: UserRole;
+  role: UserRole;
 
   @IsOptional()
   @IsString()
-  refreshToken?: string;
+  image: string;
 }

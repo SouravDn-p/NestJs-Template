@@ -1,24 +1,23 @@
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
+import { ValidationPipe } from '@nestjs/common';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Enable CORS for specific origins
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-    ],
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
   });
 
-  // Global pipes
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  app.use(cookieParser());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -27,15 +26,11 @@ async function bootstrap() {
     }),
   );
 
-  // Global filters
-  app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Global interceptors
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  // Cookie parser middleware
-  app.use(cookieParser());
-
-  await app.listen(process.env.PORT ?? 5000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port') || 5000;
+  await app.listen(port);
 }
-bootstrap();
+void bootstrap();
