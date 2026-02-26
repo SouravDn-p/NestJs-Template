@@ -1,18 +1,22 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { CreateUserDto } from '../users/user-dto/create-user-dto';
-import { SafeUser } from '../users/schemas/userType';
-import { UsersService } from '../users/users.service';
-import { GlobalResponse } from '../../common/response/global-response.interface';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { UserCredentials } from '../users/schemas/userType';
-import { UserDocument } from '../users/schemas/user.schema';
+import { UsersService } from '../users/users.service';
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { LoginDto } from '../users/dto/login.dto';
+import { CreateUserResponse, SafeUser } from '../users/types/user.types';
+import { UserRole } from '../users/schemas/user.schema';
+import { JwtConfig } from '../../config/jwt.config';
+import { JwtPayload, JwtUser } from 'src/common/types/auth.types';
 
-interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
+interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LoginResult extends TokenPair {
+  user: SafeUser;
 }
 
 @Injectable()
@@ -23,107 +27,78 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async CreateUser(createUserDto: CreateUserDto): Promise<GlobalResponse<SafeUser>> {
-    return this.usersService.CreateUser(createUserDto);
+  async register(
+    createUserDto: CreateUserDto,
+    imagePath: string | null,
+  ): Promise<CreateUserResponse> {
+    return this.usersService.create(createUserDto, imagePath);
   }
 
-  async validateUser(credentials: UserCredentials): Promise<UserDocument | null> {
-    const user = await this.usersService.findByEmail(credentials.email);
-    if (user && (await bcrypt.compare(credentials.password, user.password))) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password, hashedRefreshToken, ...result } = user;
-      return result as UserDocument;
-    }
-    return null;
-  }
+  async login(loginDto: LoginDto): Promise<LoginResult> {
+    const user = await this.usersService.findByEmail(loginDto.email);
 
-  async login(user: UserDocument): Promise<{ accessToken: string; refreshToken: string; user: SafeUser; message: string }> {
-    const payload: JwtPayload = {
-      sub: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    };
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    // Generate tokens
-    const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_SECRET') || 'default-secret',
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m' as any,
-    });
+    const passwordMatch = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
+    if (!passwordMatch) throw new UnauthorizedException('Invalid credentials');
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d' as any,
-    });
+    const userId = user.id;
+    const tokens = await this.generateTokens(userId, user.email, user.role);
 
-    // Store hashed refresh token in database
-    await this.usersService.updateRefreshToken(user._id.toString(), refreshToken);
-
-    // Prepare safe user object (without refreshToken)
-    const safeUser: SafeUser = {
-      _id: user._id.toString(),
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      image: user.image || null,
-    };
+    await this.usersService.updateRefreshToken(userId, tokens.refreshToken);
 
     return {
-      accessToken,
-      refreshToken,
-      user: safeUser,
-      message: 'Login successful',
+      ...tokens,
+      user: {
+        _id: userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+      },
     };
   }
 
-  async refresh(userId: string, currentRefreshToken: string): Promise<{ accessToken: string; refreshToken: string; message: string }> {
-    // Validate the current refresh token
-    const isValid = await this.usersService.validateRefreshToken(userId, currentRefreshToken);
-    
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    const user = await this.usersService.findById(userId);
-    
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    const payload: JwtPayload = {
-      sub: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    };
-
-    // Generate new tokens (token rotation)
-    const newAccessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_SECRET') || 'default-secret',
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m' as any,
-    });
-
-    const newRefreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d' as any,
-    });
-
-    // Update with new hashed refresh token (rotation)
-    await this.usersService.updateRefreshToken(userId, newRefreshToken);
-
-    return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      message: 'Token refreshed successfully',
-    };
+  async refresh(jwtUser: JwtUser): Promise<TokenPair> {
+    const tokens = await this.generateTokens(
+      jwtUser.userId,
+      jwtUser.email,
+      jwtUser.role,
+    );
+    await this.usersService.updateRefreshToken(
+      jwtUser.userId,
+      tokens.refreshToken,
+    );
+    return tokens;
   }
 
-  async logout(userId: string): Promise<GlobalResponse<null>> {
-    // Remove refresh token from database
+  async logout(userId: string): Promise<void> {
     await this.usersService.updateRefreshToken(userId, null);
-    
-    return {
-      data: null,
-      message: 'Logout successful',
-    };
+  }
+
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: UserRole,
+  ): Promise<TokenPair> {
+    const jwtConfig = this.configService.get<JwtConfig>('jwt')!;
+    const payload: JwtPayload = { sub: userId, email, role };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: jwtConfig.accessSecret,
+        expiresIn: jwtConfig.accessExpiresIn,
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: jwtConfig.refreshSecret,
+        expiresIn: jwtConfig.refreshExpiresIn,
+      }),
+    ]);
+
+    return { accessToken, refreshToken };
   }
 }

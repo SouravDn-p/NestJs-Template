@@ -1,76 +1,47 @@
-/* eslint-disable prettier/prettier */
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
-import type { StrategyOptions } from 'passport-jwt';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
-}
-
-interface CookieRequest {
-  cookies?: {
-    refreshToken?: string;
-  };
-}
+import type { Request } from 'express';
+import { JwtConfig } from '../../../config/jwt.config';
+import { JwtPayload, JwtUser } from 'src/common/types/auth.types';
 
 @Injectable()
 export class RefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(
-    private configService: ConfigService,
-    private usersService: UsersService,
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
   ) {
-    const extractor = (request: CookieRequest): string | null => {
-      // For refresh strategy, we need to get the refresh token from the cookie
-      // This will be the actual JWT refresh token
-      if (request?.cookies?.refreshToken) {
-        return request.cookies.refreshToken;
-      }
-      return null;
-    };
+    const jwtConfig = configService.get<JwtConfig>('jwt')!;
 
     const options: StrategyOptions = {
-      jwtFromRequest: ExtractJwt.fromExtractors([extractor]),
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret',
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (request: Request): string | null => {
+          const cookies = request.cookies as Record<string, string | undefined>;
+          return cookies['refreshToken'] ?? null;
+        },
+      ]),
+      secretOrKey: jwtConfig.refreshSecret,
       passReqToCallback: true,
     };
-    
+
     super(options);
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async validate(req: CookieRequest, payload: JwtPayload): Promise<{
-    userId: string;
-    email: string;
-    role: string;
-  }> {
-    // Extract the refresh token from the cookie
-    const refreshToken = req.cookies?.refreshToken;
-    
+  async validate(request: Request, payload: JwtPayload): Promise<JwtUser> {
+    const cookies = request.cookies as Record<string, string | undefined>;
+    const refreshToken = cookies['refreshToken'];
+
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token not found in cookie');
+      throw new UnauthorizedException('Refresh token missing');
     }
 
-    // Check if the token has expired by verifying it against the database
-    // The JWT will be decoded by Passport, but we still need to verify it's still valid in DB
-    const user = await this.usersService.findById(payload.sub);
-    
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+    const isValid = await this.usersService.validateRefreshToken(
+      payload.sub,
+      refreshToken,
+    );
 
-    // If user exists but doesn't have a hashed refresh token, it means the refresh token was invalidated
-    if (!user.hashedRefreshToken) {
-      throw new UnauthorizedException('Refresh token has been revoked');
-    }
-
-    // Validate the refresh token by checking it against the hashed version in the database
-    const isValid = await this.usersService.validateRefreshToken(payload.sub, refreshToken);
-    
     if (!isValid) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }

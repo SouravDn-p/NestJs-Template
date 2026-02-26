@@ -1,162 +1,161 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Body,
   Controller,
   Post,
   UseGuards,
-  Req,
   Res,
   HttpCode,
   HttpStatus,
+  Get,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { CreateUserDto } from '../users/user-dto/create-user-dto';
-import type {
-  CreateUserResponse,
-  UserCredentials,
-} from '../users/schemas/userType';
-import { GlobalResponse } from '../../common/response/global-response.interface';
 import { AuthGuard } from '@nestjs/passport';
-import type { Request, Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import type { Response } from 'express';
+import { AuthService } from './auth.service';
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { LoginDto } from '../users/dto/login.dto';
 
-// Extend the Request interface to include user property
-interface RequestWithUser extends Request {
-  user: {
-    userId: string;
-    email: string;
-    role: string;
+import { CreateUserResponse, SafeUser } from '../users/types/user.types';
+import { ApiResponse } from 'src/common/types/global';
+import type { JwtUser } from 'src/common/types/auth.types';
+import { Public } from 'src/common/decorators/public.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
+const ACCESS_MAX_AGE = 15 * 60 * 1000;
+const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+function buildCookieOptions(maxAge: number) {
+  return {
+    httpOnly: true,
+    secure: process.env['NODE_ENV'] === 'production',
+    sameSite: 'strict' as const,
+    maxAge,
   };
 }
+
+const imageStorage = diskStorage({
+  destination: './uploads/avatars',
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `avatar-${uniqueSuffix}${extname(file.originalname)}`);
+  },
+});
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // ─── Register ────────────────────────────────────────────────────────────────
+  // POST /auth/register
+  // Content-Type: multipart/form-data
+  // Fields: firstName, lastName, email, password, role? (optional)
+  // File:   image (optional, max 2MB, jpeg/png/webp)
   @Post('register')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('image', { storage: imageStorage }))
   async register(
     @Body() createUserDto: CreateUserDto,
-  ): Promise<GlobalResponse<CreateUserResponse>> {
-    return await this.authService.CreateUser(createUserDto);
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2 MB
+          new FileTypeValidator({ fileType: /^image\/(jpeg|png|webp)$/ }),
+        ],
+        fileIsRequired: false, // image is optional
+      }),
+    )
+    file: Express.Multer.File | undefined,
+  ): Promise<ApiResponse<CreateUserResponse>> {
+    const imagePath = file ? `/uploads/avatars/${file.filename}` : null;
+    const data = await this.authService.register(createUserDto, imagePath);
+    return ApiResponse.success(data);
   }
 
-  @HttpCode(HttpStatus.OK)
+  // ─── Login ───────────────────────────────────────────────────────────────────
+  // POST /auth/login  — JSON body
   @Post('login')
+  @Public()
+  @HttpCode(HttpStatus.OK)
   async login(
-    @Body() credentials: UserCredentials,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const user = await this.authService.validateUser(credentials);
-    if (!user) {
-      return {
-        data: null,
-        message: 'Invalid credentials',
-      };
-    }
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApiResponse<{ user: SafeUser }>> {
+    const result = await this.authService.login(loginDto);
 
-    const result = await this.authService.login(user);
-
-    // Set access token cookie
-    response.cookie('accessToken', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    // Set refresh token cookie (HTTP-only for security)
-    // Store the actual refresh token in the cookie
-    response.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    // Return response without refreshToken in data
-    return {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      message: result.message,
-      path: '/auth/login',
-      data: {
-        accessToken: result.accessToken,
-        user: result.user,
-      },
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt-refresh'))
-  @Post('refresh')
-  async refresh(
-    @Req() request: RequestWithUser,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const user = request.user;
-
-    // Get the actual refresh token from the cookie
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const currentRefreshToken = request.cookies?.refreshToken;
-
-    if (!currentRefreshToken) {
-      return {
-        data: null,
-        message: 'Refresh token not found',
-      };
-    }
-
-    // Pass the user ID and the current refresh token to the service
-    const result = await this.authService.refresh(
-      user.userId,
-      currentRefreshToken,
+    res.cookie(
+      'accessToken',
+      result.accessToken,
+      buildCookieOptions(ACCESS_MAX_AGE),
+    );
+    res.cookie(
+      'refreshToken',
+      result.refreshToken,
+      buildCookieOptions(REFRESH_MAX_AGE),
     );
 
-    // Set new access token cookie
-    response.cookie('accessToken', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
-    // Set new refresh token cookie (token rotation)
-    response.cookie('refreshToken', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    // Return response with new access token only
-    return {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      message: result.message,
-      path: '/auth/refresh',
-      data: {
-        accessToken: result.accessToken,
-      },
-    };
+    return ApiResponse.success({ user: result.user });
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  // ─── Refresh ──────────────────────────────────────────────────────────────────
+  // POST /auth/refresh — reads refreshToken cookie, issues new pair
+  @Post('refresh')
+  @Public()
+  @UseGuards(AuthGuard('jwt-refresh'))
+  @HttpCode(HttpStatus.OK)
+  async refresh(
+    @CurrentUser() user: JwtUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApiResponse<null>> {
+    const tokens = await this.authService.refresh(user);
+
+    res.cookie(
+      'accessToken',
+      tokens.accessToken,
+      buildCookieOptions(ACCESS_MAX_AGE),
+    );
+    res.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      buildCookieOptions(REFRESH_MAX_AGE),
+    );
+
+    return ApiResponse.success(null);
+  }
+
+  // ─── Logout ───────────────────────────────────────────────────────────────────
+  // POST /auth/logout — clears cookies and revokes refresh token in DB
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   async logout(
-    @Req() request: RequestWithUser,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const user = request.user;
-    const result = await this.authService.logout(user.userId);
+    @CurrentUser() user: JwtUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ApiResponse<null>> {
+    await this.authService.logout(user.userId);
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    return ApiResponse.success(null);
+  }
 
-    // Clear cookies
-    response.clearCookie('accessToken');
-    response.clearCookie('refreshToken');
-
-    return {
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      message: result.message,
-      path: '/auth/logout',
-      data: result.data,
-    };
+  // ─── Me ───────────────────────────────────────────────────────────────────────
+  // GET /auth/me — returns current user from DB
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async me(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ApiResponse<SafeUser | null>> {
+    const safeUser = await this.authService['usersService'].findSafeById(
+      user.userId,
+    );
+    return ApiResponse.success(safeUser);
   }
 }

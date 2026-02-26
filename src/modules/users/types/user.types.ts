@@ -1,4 +1,4 @@
-import { UserRole } from './user.schema';
+import { UserRole } from '../schemas/user.schema';
 
 export interface CreateUserResponse {
   _id: string;
@@ -15,7 +15,6 @@ export interface SafeUser {
   email: string;
   role: UserRole;
   image: string | null;
-  // refreshToken is removed for security
 }
 
 export interface UserCredentials {

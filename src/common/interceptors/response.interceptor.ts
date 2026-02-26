@@ -1,66 +1,65 @@
 import {
-  CallHandler,
-  ExecutionContext,
   Injectable,
   NestInterceptor,
+  ExecutionContext,
+  CallHandler,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-
-interface FormattedResponse<T> {
-  statusCode: number;
-  timestamp: string;
-  message: string;
-  path: string;
-  data?: T;
-}
-
-interface ServiceResponse<T> {
-  data: T;
-  message: string;
-}
+import { Request, Response } from 'express';
+import { ApiResponse } from '../types/global';
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<
   T,
-  FormattedResponse<T>
+  ApiResponse<T>
 > {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<FormattedResponse<T>> {
-    const httpCtx = context.switchToHttp();
-    const response = httpCtx.getResponse<Response>();
-    const request = httpCtx.getRequest<Request>();
-
+  ): Observable<ApiResponse<T>> {
     return next.handle().pipe(
       map((data: T) => {
-        // Check if the data contains a custom message (from services)
-        let message = 'Request successful';
-        let responseData: T | undefined = data;
-
-        // If data has the structure of our ServiceResponse, extract message and actual data
-        if (
-          data &&
-          typeof data === 'object' &&
-          'message' in data &&
-          'data' in data
-        ) {
-          const serviceResponse = data as ServiceResponse<unknown>;
-          message = serviceResponse.message;
-          responseData = serviceResponse.data as T;
+        if (this.isApiResponse(data)) {
+          return data as ApiResponse<T>;
         }
 
+        const httpContext = context.switchToHttp();
+        const response = httpContext.getResponse<Response>();
+        const request = httpContext.getRequest<Request>();
+        const statusCode: number = response.statusCode;
+        const path: string = request.url;
+        const timestamp = new Date().toISOString();
+
         return {
-          statusCode: response.statusCode,
-          timestamp: new Date().toISOString(),
-          message: message,
-          path: request.url,
-          ...(responseData !== undefined &&
-            responseData !== null && { data: responseData }),
+          success: true,
+          message: this.getSuccessMessage(statusCode),
+          data,
+          meta: { statusCode, path, timestamp },
         };
       }),
     );
+  }
+
+  private isApiResponse(data: unknown): boolean {
+    return (
+      data !== null &&
+      typeof data === 'object' &&
+      'success' in data &&
+      'message' in data
+    );
+  }
+
+  private getSuccessMessage(statusCode: number): string {
+    switch (statusCode) {
+      case 200:
+        return 'Request successful';
+      case 201:
+         return 'Resource created successfully';
+      case 204:
+         return 'Request processed successfully';
+      default:
+          return 'Operation completed successfully';
+    }
   }
 }

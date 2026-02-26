@@ -3,32 +3,31 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
-  IsNotEmpty,
 } from 'class-validator';
 import { UserRole } from '../schemas/user.schema';
 
 export class CreateUserDto {
   @IsString()
-  @IsNotEmpty()
-  firstName: string;
+  @MinLength(2)
+  @MaxLength(60)
+  firstName!: string;
 
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  @MinLength(2)
+  @MaxLength(60)
+  lastName!: string;
 
   @IsEmail()
-  email: string;
+  email!: string;
 
   @IsString()
-  @MinLength(6)
-  password: string;
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(100)
+  password!: string;
 
   @IsOptional()
   @IsEnum(UserRole)
-  role: UserRole;
-
-  @IsOptional()
-  @IsString()
-  image: string;
+  role?: UserRole;
 }
