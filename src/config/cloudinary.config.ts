@@ -9,9 +9,8 @@ export interface CloudinaryConfig {
 export default registerAs<CloudinaryConfig>(
   'cloudinary',
   (): CloudinaryConfig => ({
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? 'fallback-cloudinary-name',
-    apiKey: process.env.CLOUDINARY_API_KEY ?? 'fallback-cloudinary-apiKey',
-    apiSecret:
-      process.env.CLOUDINARY_API_SECRET ?? 'fallback-cloudinary-apiSecret',
+    cloudName: process.env['CLOUDINARY_CLOUD_NAME'] ?? '',
+    apiKey: process.env['CLOUDINARY_API_KEY'] ?? '',
+    apiSecret: process.env['CLOUDINARY_API_SECRET'] ?? '',
   }),
 );
