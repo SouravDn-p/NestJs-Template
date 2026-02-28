@@ -12,7 +12,6 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CloudinaryModule } from './services/cloudinary/cloudinary.module';
-import { Cloudinary } from './serveces/cloudinary/cloudinary';
 
 @Module({
   imports: [
@@ -36,7 +35,6 @@ import { Cloudinary } from './serveces/cloudinary/cloudinary';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     AppService,
-    Cloudinary,
   ],
 })
 export class AppModule {}

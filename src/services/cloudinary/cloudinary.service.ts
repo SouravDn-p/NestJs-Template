@@ -1,6 +1,6 @@
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import type { UploadApiResponse } from 'cloudinary';
-import type { v2 as CloudinaryV2 } from 'cloudinary';
+import { v2 } from 'cloudinary';
 import { Readable } from 'stream';
 import { CLOUDINARY } from './cloudinary.provider';
 
@@ -8,7 +8,7 @@ import { CLOUDINARY } from './cloudinary.provider';
 export class CloudinaryService {
   constructor(
     @Inject(CLOUDINARY)
-    private readonly cloudinary: typeof CloudinaryV2,
+    private readonly cloudinary: typeof v2,
   ) {}
 
   async uploadFile(
@@ -27,7 +27,7 @@ export class CloudinaryService {
           use_filename: false,
           unique_filename: true,
         },
-        (error: unknown, result?: UploadApiResponse) => {
+        (error, result?: UploadApiResponse) => {
           if (error || !result) {
             reject(new BadRequestException('Cloudinary upload failed'));
             return;

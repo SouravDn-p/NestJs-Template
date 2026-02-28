@@ -1,8 +1,7 @@
 import { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 } from 'cloudinary';
-import type { ConfigOptions, ConfigAndUrlOptions } from 'cloudinary';
-import type { CloudinaryConfig } from '../../config/cloudinary.config';
+import { CloudinaryConfig } from 'src/config/cloudinary.config';
 
 export const CLOUDINARY = 'CLOUDINARY';
 
@@ -19,7 +18,7 @@ export const CloudinaryProvider: Provider = {
       cloud_name: config.cloudName,
       api_key: config.apiKey,
       api_secret: config.apiSecret,
-    } as ConfigOptions & ConfigAndUrlOptions);
+    });
 
     return v2;
   },
