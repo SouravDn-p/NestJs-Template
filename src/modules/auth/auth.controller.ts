@@ -9,9 +9,6 @@ import {
   Get,
   UseInterceptors,
   UploadedFile,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -53,35 +50,20 @@ const imageStorage = diskStorage({
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // ─── Register ────────────────────────────────────────────────────────────────
-  // POST /auth/register
-  // Content-Type: multipart/form-data
-  // Fields: firstName, lastName, email, password, role? (optional)
-  // File:   image (optional, max 2MB, jpeg/png/webp)
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('image', { storage: imageStorage }))
   async register(
     @Body() createUserDto: CreateUserDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2 MB
-          new FileTypeValidator({ fileType: /^image\/(jpeg|png|webp)$/ }),
-        ],
-        fileIsRequired: false, // image is optional
-      }),
-    )
-    file: Express.Multer.File | undefined,
+    @UploadedFile()
+    file: Express.Multer.File,
   ): Promise<ApiResponse<CreateUserResponse>> {
     const imagePath = file ? `/uploads/avatars/${file.filename}` : null;
     const data = await this.authService.register(createUserDto, imagePath);
     return ApiResponse.success(data);
   }
 
-  // ─── Login ───────────────────────────────────────────────────────────────────
-  // POST /auth/login  — JSON body
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -105,8 +87,6 @@ export class AuthController {
     return ApiResponse.success({ user: result.user });
   }
 
-  // ─── Refresh ──────────────────────────────────────────────────────────────────
-  // POST /auth/refresh — reads refreshToken cookie, issues new pair
   @Post('refresh')
   @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
@@ -131,8 +111,6 @@ export class AuthController {
     return ApiResponse.success(null);
   }
 
-  // ─── Logout ───────────────────────────────────────────────────────────────────
-  // POST /auth/logout — clears cookies and revokes refresh token in DB
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -146,8 +124,6 @@ export class AuthController {
     return ApiResponse.success(null);
   }
 
-  // ─── Me ───────────────────────────────────────────────────────────────────────
-  // GET /auth/me — returns current user from DB
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(

@@ -101,4 +101,8 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+
+  async getProfile(userId: string) {
+    return this.usersService.findSafeById(userId);
+  }
 }

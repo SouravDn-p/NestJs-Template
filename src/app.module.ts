@@ -1,3 +1,4 @@
+import cloudinaryConfig from './config/cloudinary.config';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -15,7 +16,7 @@ import { AppService } from './app.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, jwtConfig],
+      load: [appConfig, jwtConfig, cloudinaryConfig],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
