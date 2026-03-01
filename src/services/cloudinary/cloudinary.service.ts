@@ -15,7 +15,11 @@ export class CloudinaryService {
     file: Express.Multer.File,
     folder: string,
   ): Promise<{ url: string; publicId: string }> {
-    if (!file || !file.mimetype.startsWith('image/')) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Image file is required');
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('Only image files are allowed');
     }
 
