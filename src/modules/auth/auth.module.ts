@@ -7,10 +7,12 @@ import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshStrategy } from './strategies/refresh.strategy';
+import { CloudinaryModule } from 'src/services/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     UsersModule,
+    CloudinaryModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
     MulterModule.register({ dest: './uploads/avatars' }),

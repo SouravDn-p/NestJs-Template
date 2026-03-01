@@ -29,9 +29,9 @@ export class AuthService {
 
   async register(
     createUserDto: CreateUserDto,
-    imagePath: string | null,
+    imageUrl: string | null,
   ): Promise<CreateUserResponse> {
-    return this.usersService.create(createUserDto, imagePath);
+    return this.usersService.create(createUserDto, imageUrl);
   }
 
   async login(loginDto: LoginDto): Promise<LoginResult> {

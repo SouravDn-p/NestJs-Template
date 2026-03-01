@@ -24,7 +24,7 @@ export class UsersService {
 
   async create(
     createUserDto: CreateUserDto,
-    imagePath: string | null,
+    imageUrl: string | null,
   ): Promise<CreateUserResponse> {
     const exists = await this.userModel.findOne({
       email: createUserDto.email.toLowerCase(),
@@ -40,7 +40,7 @@ export class UsersService {
       ...createUserDto,
       email: createUserDto.email.toLowerCase(),
       password: hashedPassword,
-      image: imagePath,
+      image: imageUrl,
     });
 
     return {
@@ -49,6 +49,7 @@ export class UsersService {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
+      image: user.image,
     };
   }
 

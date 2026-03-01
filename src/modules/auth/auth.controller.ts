@@ -12,8 +12,6 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -25,6 +23,8 @@ import type { JwtUser } from 'src/common/types/auth.types';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CloudinaryService } from 'src/services/cloudinary/cloudinary.service';
+import { imageMulterOptions } from 'src/config/multer.config';
 
 const ACCESS_MAX_AGE = 15 * 60 * 1000;
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -38,29 +38,32 @@ function buildCookieOptions(maxAge: number) {
   };
 }
 
-const imageStorage = diskStorage({
-  destination: './uploads/avatars',
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `avatar-${uniqueSuffix}${extname(file.originalname)}`);
-  },
-});
-
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly cloudinaryServe: CloudinaryService,
+  ) {}
 
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(FileInterceptor('image', { storage: imageStorage }))
+  @UseInterceptors(FileInterceptor('image', imageMulterOptions))
   async register(
     @Body() createUserDto: CreateUserDto,
     @UploadedFile()
     file: Express.Multer.File,
   ): Promise<ApiResponse<CreateUserResponse>> {
-    const imagePath = file ? `/uploads/avatars/${file.filename}` : null;
-    const data = await this.authService.register(createUserDto, imagePath);
+    let imageUrl: string | null = null;
+
+    if (file) {
+      const upload = await this.cloudinaryServe.uploadFile(
+        file,
+        'nest-practice',
+      );
+      imageUrl = upload.url;
+    }
+    const data = await this.authService.register(createUserDto, imageUrl);
     return ApiResponse.success(data);
   }
 

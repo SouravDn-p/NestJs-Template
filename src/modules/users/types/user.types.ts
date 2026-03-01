@@ -6,6 +6,7 @@ export interface CreateUserResponse {
   lastName: string;
   email: string;
   role: UserRole;
+  image: string | null;
 }
 
 export interface SafeUser {
