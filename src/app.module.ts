@@ -12,6 +12,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CloudinaryModule } from './services/cloudinary/cloudinary.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CloudinaryModule } from './services/cloudinary/cloudinary.module';
     AuthModule,
     UsersModule,
     CloudinaryModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,3 +1,4 @@
+import { UsersService } from './../users/users.service';
 import {
   Body,
   Controller,
@@ -9,6 +10,7 @@ import {
   Get,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -43,6 +45,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly cloudinaryServe: CloudinaryService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Post('register')
@@ -54,6 +57,11 @@ export class AuthController {
     @UploadedFile()
     file: Express.Multer.File,
   ): Promise<ApiResponse<CreateUserResponse>> {
+    const exist = await this.usersService.findByEmail(createUserDto.email);
+
+    if (exist) {
+      throw new BadRequestException('Email ALready Register');
+    }
     let imageUrl: string | null = null;
 
     if (file) {
