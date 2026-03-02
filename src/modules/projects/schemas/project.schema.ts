@@ -3,6 +3,12 @@ import { HydratedDocument } from 'mongoose';
 
 export type ProjectDocument = HydratedDocument<Project>;
 
+// Extend Project class to include Mongoose timestamps
+export interface ProjectWithDate {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export enum ProjectStatus {
   PENDING = 'Pending',
   STARTING = 'Starting',
@@ -10,7 +16,7 @@ export enum ProjectStatus {
 }
 
 @Schema({ timestamps: true })
-export class Project {
+export class Project implements ProjectWithDate {
   @Prop({ required: true, trim: true })
   title!: string;
 
@@ -27,7 +33,7 @@ export class Project {
   liveUrl!: string;
 
   @Prop({ default: null })
-  backendLiveUrl?: string ;
+  backendLiveUrl?: string;
 
   @Prop({ default: null })
   repoUrl?: string;
@@ -39,13 +45,17 @@ export class Project {
   startingDate?: string;
 
   @Prop({ default: null })
-  updateSate?: string;
+  updateDate?: string;
 
   @Prop({ required: true })
   teamMember!: number;
 
   @Prop({ type: String, enum: ProjectStatus, default: ProjectStatus.PENDING })
   status!: ProjectStatus;
+
+  // These are added by Mongoose timestamps
+  createdAt!: Date;
+  updatedAt!: Date;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

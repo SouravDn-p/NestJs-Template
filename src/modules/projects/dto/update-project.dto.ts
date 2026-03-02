@@ -1,7 +1,6 @@
 import {
   IsArray,
   IsEnum,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,30 +10,32 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ProjectStatus } from '../schemas/project.schema';
 
-export class CreateProjectDto {
+export class UpdateProjectDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  title!: string;
+  title?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description!: string;
+  description?: string;
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }: { value: unknown }): string[] | string => {
+  @Transform(({ value }: { value: unknown }): string[] | undefined => {
     if (typeof value === 'string') {
       return value
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
     }
-    return value as string[] | string;
+    return value as string[] | undefined;
   })
-  tags!: string[];
+  tags?: string[];
 
+  @IsOptional()
   @IsUrl()
-  liveUrl!: string;
+  liveUrl?: string;
 
   @IsOptional()
   @IsUrl()
@@ -54,12 +55,13 @@ export class CreateProjectDto {
 
   @IsOptional()
   @IsString()
-  updateSate?: string;
+  updateDate?: string;
 
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  teamMember!: number;
+  teamMember?: number;
 
   @IsOptional()
   @IsEnum(ProjectStatus)

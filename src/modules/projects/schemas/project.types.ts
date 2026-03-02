@@ -13,6 +13,8 @@ export interface CreateProjectResponse {
   startingDate: string | null;
   teamMember: number;
   status: ProjectStatus;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface SafeProject {
@@ -28,7 +30,8 @@ export interface SafeProject {
   startingDate: string | null;
   teamMember: number;
   status: ProjectStatus;
-  // createdAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ProjectQuery {
