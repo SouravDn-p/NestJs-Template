@@ -1,28 +1,30 @@
 version: '3.9'
 
 services:
-  mongo:
-    image: mongo:latest
-    container_name: mongo
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: always
     ports:
-      - '27017:27017'
+      - '5432:5432' # Expose PostgreSQL to host
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: sourav
+      POSTGRES_DB: souravdb # default DB
     volumes:
-      - sourav-backend_mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: sourav
+      - sourav-nest-postgrey:/var/lib/postgresql/data
 
-  mongo-express:
-    image: mongo-express:latest
-    container_name: mongo-express
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: always
     ports:
-      - '8081:8081'
+      - '8081:80' # Web UI for PostgreSQL
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: sourav
-      ME_CONFIG_MONGODB_SERVER: mongo
+      PGADMIN_DEFAULT_EMAIL: admin@sourav.com
+      PGADMIN_DEFAULT_PASSWORD: sourav
     depends_on:
-      - mongo
+      - postgres
 
 volumes:
-  sourav-backend_mongodb_data: 
+  sourav-nest-postgrey:
