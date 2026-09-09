@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
-import { User } from './schemas/user.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -11,8 +10,15 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         {
-          provide: getModelToken(User.name),
-          useValue: {},
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findMany: jest.fn(),
+              findUnique: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+            },
+          },
         },
       ],
     }).compile();
