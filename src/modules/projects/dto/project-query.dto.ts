@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { ProjectStatus } from '../schemas/project.schema';
+import { ProjectStatus } from '@prisma/client';
 
 export class ProjectQueryDto {
   @IsOptional()
