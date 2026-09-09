@@ -1,0 +1,24 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "docker-mongoose",
+    "main",
+    "nest-moongoose",
+    "origin",
+    "postgres-prisma"
+  ],
+  "parent": {
+    "docker-mongoose": "main",
+    "main": null,
+    "nest-moongoose": "main",
+    "origin": "main",
+    "postgres-prisma": "main"
+  },
+  "order": [
+    "main",
+    "docker-mongoose",
+    "nest-moongoose",
+    "origin",
+    "postgres-prisma"
+  ]
+}
