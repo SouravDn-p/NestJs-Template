@@ -22,7 +22,7 @@ import { CloudinaryService } from '../../services/cloudinary/cloudinary.service'
 import { Public } from 'src/common/decorators/public.decorator';
 import { SafeProject } from './schemas/project.types';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '../users/schemas/user.schema';
+import { UserRole } from '@prisma/client';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectQueryDto } from './dto/project-query.dto';
 
@@ -87,7 +87,7 @@ export class ProjectsController {
   // ─── DELETE /projects/:id ────────────────────────────────────────────────
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.admin)
   async remove(
     @Param('id') id: string,
   ): Promise<ApiResponse<{ deleted: boolean }>> {

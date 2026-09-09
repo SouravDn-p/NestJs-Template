@@ -6,7 +6,7 @@ import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from '../users/dto/login.dto';
 import { CreateUserResponse, SafeUser } from '../users/types/user.types';
-import { UserRole } from '../users/schemas/user.schema';
+import { UserRole } from '@prisma/client';
 import { JwtConfig } from '../../config/jwt.config';
 import { JwtPayload, JwtUser } from 'src/common/types/auth.types';
 
