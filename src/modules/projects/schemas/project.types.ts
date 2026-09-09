@@ -1,4 +1,4 @@
-import { ProjectStatus } from '../schemas/project.schema';
+import { ProjectStatus } from '@prisma/client';
 
 export interface CreateProjectResponse {
   _id: string;

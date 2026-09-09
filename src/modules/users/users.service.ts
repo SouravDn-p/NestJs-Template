@@ -1,8 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { User, UserDocument } from './schemas/user.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateUserResponse, SafeUser } from './types/user.types';
 
@@ -10,25 +9,32 @@ const SALT_ROUNDS = 12;
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getAllUsers(): Promise<SafeUser[]> {
-    const users = await this.userModel
-      .find()
-      .select('firstName lastName email role image createdAt updatedAt')
-      .lean<SafeUser[]>();
-    return users;
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map((user) => this.toSafeUser(user));
   }
 
   async create(
     createUserDto: CreateUserDto,
     imageUrl: string | null,
   ): Promise<CreateUserResponse> {
-    const exists = await this.userModel.findOne({
-      email: createUserDto.email.toLowerCase(),
-    });
+    const email = createUserDto.email.toLowerCase();
+    const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new ConflictException('Email already registered');
 
     const hashedPassword = await bcrypt.hash(
@@ -36,45 +42,34 @@ export class UsersService {
       SALT_ROUNDS,
     );
 
-    const user = await this.userModel.create({
-      ...createUserDto,
-      email: createUserDto.email.toLowerCase(),
-      password: hashedPassword,
-      image: imageUrl,
+    const user = await this.prisma.user.create({
+      data: {
+        firstName: createUserDto.firstName,
+        lastName: createUserDto.lastName,
+        email,
+        password: hashedPassword,
+        image: imageUrl,
+        role: createUserDto.role,
+      },
     });
 
-    return {
-      _id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      image: user.image,
-    };
+    return this.toSafeUser(user);
   }
 
-  async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel
-      .findOne({ email: email.toLowerCase() })
-      .select('+password')
-      .exec();
+  async findByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
   }
 
-  async findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   async findSafeById(id: string): Promise<SafeUser | null> {
-    const user = await this.userModel.findById(id).exec();
+    const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) return null;
-    return {
-      _id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      image: user.image,
-    };
+    return this.toSafeUser(user);
   }
 
   async updateRefreshToken(
@@ -84,8 +79,10 @@ export class UsersService {
     const hashed = refreshToken
       ? await bcrypt.hash(refreshToken, SALT_ROUNDS)
       : null;
-    await this.userModel.findByIdAndUpdate(userId, {
-      hashedRefreshToken: hashed,
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { hashedRefreshToken: hashed },
     });
   }
 
@@ -93,11 +90,24 @@ export class UsersService {
     userId: string,
     refreshToken: string,
   ): Promise<boolean> {
-    const user = await this.userModel
-      .findById(userId)
-      .select('+hashedRefreshToken')
-      .exec();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.hashedRefreshToken) return false;
     return bcrypt.compare(refreshToken, user.hashedRefreshToken);
+  }
+
+  private toSafeUser(
+    user: Pick<
+      User,
+      'id' | 'firstName' | 'lastName' | 'email' | 'role' | 'image'
+    >,
+  ): SafeUser {
+    return {
+      _id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      image: user.image,
+    };
   }
 }
