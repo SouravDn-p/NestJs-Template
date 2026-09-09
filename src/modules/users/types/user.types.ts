@@ -1,4 +1,4 @@
-import { UserRole } from '../schemas/user.schema';
+import { UserRole } from '@prisma/client';
 
 export interface CreateUserResponse {
   _id: string;
