@@ -1,7 +1,6 @@
 import cloudinaryConfig from './config/cloudinary.config';
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import appConfig from './config/app.config';
 import jwtConfig from './config/jwt.config';
@@ -13,6 +12,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CloudinaryModule } from './services/cloudinary/cloudinary.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
@@ -20,13 +20,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
       isGlobal: true,
       load: [appConfig, jwtConfig, cloudinaryConfig],
     }),
-    MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI'),
-      }),
-      inject: [ConfigService],
-    }),
+    PrismaModule,
     AuthModule,
     UsersModule,
     CloudinaryModule,

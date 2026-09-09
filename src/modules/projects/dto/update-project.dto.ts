@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ProjectStatus } from '../schemas/project.schema';
+import { ProjectStatus } from '@prisma/client';
 
 export class UpdateProjectDto {
   @IsOptional()
