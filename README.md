@@ -1,8 +1,6 @@
-# SerVe Server
+# Nest Template
 
-Backend API for **SerVe (ResPOS)** — a multi-tenant restaurant management and POS SaaS. Restaurant businesses subscribe as tenants and run day-to-day operations (POS, kitchen, floor, staff) under plan limits, while platform admins manage tenants, plans, and subscriptions.
-
-This repository is the NestJS modular monolith that powers that platform.
+NestJS API template with PostgreSQL, Prisma, cookie JWT auth, and Docker.
 
 ---
 
@@ -12,9 +10,9 @@ This repository is the NestJS modular monolith that powers that platform.
 |-------|--------|
 | Runtime | Node.js 22+, NestJS 12 (TypeScript, ESM) |
 | Database | PostgreSQL 17 + Prisma ORM 7 |
-| Auth | JWT (cookie-based), Passport |
+| Auth | JWT (cookie-based), Passport, role guard |
 | Media | Cloudinary |
-| API docs | Swagger / OpenAPI |
+| API docs | Swagger / OpenAPI at `/api/docs` |
 | Containers | Docker + Docker Compose |
 
 ---
@@ -22,7 +20,8 @@ This repository is the NestJS modular monolith that powers that platform.
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) **22+** and npm
-- [Docker](https://docs.docker.com/get-docker/) + Docker Compose (for Postgres and/or full stack)
+- [Docker](https://docs.docker.com/get-docker/) + Docker Compose
+- GNU Make (optional — `make help`)
 
 ---
 
@@ -30,131 +29,78 @@ This repository is the NestJS modular monolith that powers that platform.
 
 ```bash
 cp .env.example .env
-# Edit .env — at minimum set DATABASE_URL and JWT secrets
-```
-
-### Option A — Full stack with Docker
-
-Runs the API and PostgreSQL together. Migrations apply on container start.
-
-```bash
-docker compose up -d --build
+make install
+make db-up
+make prisma-generate
+make prisma-deploy
+make start:dev
 ```
 
 | Service | URL |
 |---------|-----|
-| API | http://localhost:5001 |
-| Swagger | http://localhost:5001/api/docs |
-| Postgres (host) | `localhost:5433` |
-
-Stop:
-
-```bash
-docker compose down
-```
-
-Reset database volume (destructive):
-
-```bash
-docker compose down -v
-```
-
-> Compose overrides `DATABASE_URL` inside the app container to use host `postgres:5432`. Your local `.env` can keep `localhost:5433` for host-side tools.
-
----
-
-### Option B — Local Nest + Docker Postgres only
-
-Best for day-to-day development (hot reload).
-
-**1. Start Postgres**
-
-```bash
-docker compose up -d postgres
-```
-
-**2. Configure `.env`**
-
-```env
-DATABASE_URL=postgresql://serv:serv-sd-password@localhost:5433/serv_db
-PORT=5000
-NODE_ENV=development
-```
-
-**3. Install, generate client, migrate, run**
-
-```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run start:dev
-```
-
-| Service | URL |
-|---------|-----|
-| API | http://localhost:5000 |
+| API | http://localhost:5000/api/v1 |
 | Swagger | http://localhost:5000/api/docs |
+| Postgres (host) | `localhost:5432` |
+
+### Full stack with Docker
+
+```bash
+make run-build
+```
+
+| Service | URL |
+|---------|-----|
+| API | http://localhost:5001/api/v1 |
+| Swagger | http://localhost:5001/api/docs |
+
+Stop with `make down`. Follow logs with `make logs`.
 
 ---
 
-## Useful scripts
+## Make targets
 
 ```bash
-npm run start:dev       # Nest watch mode
-npm run build           # Compile to dist/
-npm run start:prod      # Run compiled app
-npm run prisma:generate # Generate Prisma Client
-npm run prisma:migrate  # Create/apply migrations (dev)
-npm run prisma:deploy   # Apply migrations (CI/prod)
-npm run prisma:studio   # Prisma Studio GUI
-npm run lint            # Oxlint
-npm run test            # Unit tests
-npm run test:e2e        # E2E tests
+make help              # list all targets
+make ci                # lint + test + build
+make start:dev         # local Nest watch
+make db-up             # Postgres only
+make up                # start stack
+make run-build         # rebuild and start stack
+make logs              # follow compose logs
+make down              # stop stack
 ```
 
 ---
 
 ## Environment
 
-Copy `.env.example` → `.env`. The database side is intentionally a single URL:
+Copy `.env.example` → `.env`. Database is a single URL:
 
 ```env
-DATABASE_URL=postgresql://serv:serv-sd-password@localhost:5433/serv_db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nest_template?schema=public
 ```
 
 | Context | Host / port |
 |---------|-------------|
-| Nest on host | `localhost:5433` |
+| Nest on host | `localhost:5432` |
 | Nest in Compose | `postgres:5432` (set by compose) |
-
-Also configure Cloudinary, JWT secrets, `PORT`, `NODE_ENV`, and `CORS_ORIGINS` as needed. See `.env.example`.
 
 ---
 
-## Project structure (high level)
+## Project structure
 
 ```text
-Serv-server/
-├── prisma/                 # Schema + migrations
+NestJs-Template/
+├── Makefile
+├── prisma/
 ├── src/
-│   ├── config/             # App, DB, JWT, Cloudinary config
-│   ├── common/             # Guards, filters, interceptors, strategies
-│   ├── services/           # Prisma, Cloudinary
-│   └── modules/            # Domain modules (admin, tenants, …)
-├── docs/                   # Concept, Prisma/Docker guide, feedback
+│   ├── config/
+│   ├── common/
+│   ├── services/
+│   └── modules/          # auth, users, admin/plans
 ├── docker-compose.yml
 └── Dockerfile
 ```
-
----
-
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [docs/Respos_project_concept.md](./docs/Respos_project_concept.md) | Product & architecture concept |
-| [docs/PRISMA_POSTGRES_DOCKER.md](./docs/PRISMA_POSTGRES_DOCKER.md) | Prisma 7 + Postgres + Compose deep dive |
-| [docs/PROJECT_BASE_FEEDBACK.md](./docs/PROJECT_BASE_FEEDBACK.md) | Current base status & next milestones |
 
 ---
 

@@ -1,7 +1,7 @@
-import { SafeAdmin } from "../../modules/admin/admin-auth/types/admin.types.js";
+import { SafeUser } from "../../modules/users/types/user.types.js";
 
-export interface AdminAuthResult {
-    admin: SafeAdmin;
-    accessToken: string;
-    refreshToken: string;
+export interface AuthResult {
+  user: SafeUser;
+  accessToken: string;
+  refreshToken: string;
 }

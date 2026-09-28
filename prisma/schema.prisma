@@ -8,10 +8,18 @@ datasource db {
   provider = "postgresql"
 }
 
-enum AdminRole {
-  SUPER_ADMIN // full access, can manage other admins
-  BILLING_ADMIN // manage plans, tenants, subscriptions
-  SUPPORT_ADMIN // read-only + can view tenant data for troubleshooting
+enum Role {
+  SUPER_ADMIN
+  BILLING_ADMIN
+  SUPPORT_ADMIN
+  OWNER
+  MANAGER
+  STAFF
+  SERVER
+  CHEF
+  CASHIER
+  RUNNER
+  BARTENDER
 }
 
 enum RoleName {
@@ -31,12 +39,20 @@ enum TenantStatus {
   TRIAL
 }
 
-model PlatformAdmin {
+enum SubStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+}
+
+model User {
   id                  String    @id @default(uuid())
   name                String
   email               String    @unique
   password            String
-  role                AdminRole @default(SUPPORT_ADMIN)
+  role                Role      @default(STAFF)
   isActive            Boolean   @default(true)
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
@@ -45,44 +61,45 @@ model PlatformAdmin {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
 
-  sessions  AdminSession[]
-  auditLogs AdminAuditLog[]
+  sessions  Session[]
+  auditLogs AuditLog[]
 
   @@index([email])
-  @@map("platform_admins")
+  @@map("users")
 }
 
-model AdminSession {
-  id               String        @id @default(uuid())
-  adminId          String
-  admin            PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokenHash String
   userAgent        String?
   ip               String?
   revokedAt        DateTime?
   expiresAt        DateTime
-  createdAt        DateTime      @default(now())
+  createdAt        DateTime  @default(now())
 
-  @@index([adminId])
-  @@map("admin_sessions")
+  @@index([userId])
+  @@map("sessions")
 }
 
-model AdminAuditLog {
-  id         String        @id @default(cuid())
-  adminId    String
-  admin      PlatformAdmin @relation(fields: [adminId], references: [id])
-  action     String // "plan.create", "tenant.suspend", "subscription.override"
-  targetType String // "Tenant", "Plan", "Subscription"
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  targetType String
   targetId   String
-  metadata   Json? // before/after values
-  createdAt  DateTime      @default(now())
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   @@index([targetType, targetId])
+  @@map("audit_logs")
 }
 
 model Plan {
   id                  String     @id @default(cuid())
-  name                String // "Starter", "Pro", "Enterprise"
+  name                String
   slug                String     @unique
   description         String?
   priceMonthly        Decimal
@@ -90,9 +107,9 @@ model Plan {
   maxLocations        Int
   maxStaffPerLocation Int
   allowedRoles        RoleName[]
-  features            Json // { kds: true, onlineOrdering: false, advancedReports: true, apiAccess: false }
+  features            Json
   isActive            Boolean    @default(true)
-  isPublic            Boolean    @default(true) // false = custom/enterprise-only, not shown on pricing page
+  isPublic            Boolean    @default(true)
   sortOrder           Int        @default(0)
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
@@ -116,31 +133,22 @@ model Subscription {
   history SubscriptionHistory[]
 }
 
-// track every plan change — critical for support/billing disputes
 model SubscriptionHistory {
   id             String       @id @default(cuid())
   subscriptionId String
   subscription   Subscription @relation(fields: [subscriptionId], references: [id])
   fromPlanId     String?
   toPlanId       String
-  changedById    String? // PlatformAdmin.id if manually changed, null if automated/self-serve
-  reason         String? // "upgrade", "downgrade", "admin_override", "billing_failure"
+  changedById    String?
+  reason         String?
   createdAt      DateTime     @default(now())
-}
-
-enum SubStatus {
-  TRIALING
-  ACTIVE
-  PAST_DUE
-  SUSPENDED
-  CANCELED
 }
 
 model Tenant {
   id        String       @id @default(cuid())
   name      String
   slug      String       @unique
-  status    TenantStatus @default(ACTIVE) // ACTIVE, SUSPENDED, TRIAL
+  status    TenantStatus @default(ACTIVE)
   createdAt DateTime     @default(now())
 
   subscription Subscription?
