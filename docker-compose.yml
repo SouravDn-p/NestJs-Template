@@ -1,37 +1,40 @@
 services:
-  postgres:
-    image: postgres:16-alpine
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: souravdebanth/serv-backend:latest
+    container_name: serv-backend
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-nest_template}
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-nest_template}',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  api:
-    build: .
-    restart: unless-stopped
-    ports:
-      - '${PORT:-5000}:5000'
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-nest_template}?schema=public
+      # Override host so the app container reaches the compose Postgres service
+      DATABASE_URL: postgresql://serv:serv-sd-password@postgres:5432/serv_db
+      NODE_ENV: production
+    ports:
+      - "5001:5000"
     depends_on:
       postgres:
         condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: serv-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: serv
+      POSTGRES_PASSWORD: serv-sd-password
+      POSTGRES_DB: serv_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serv -d serv_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

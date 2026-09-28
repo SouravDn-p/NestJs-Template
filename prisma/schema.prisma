@@ -1,54 +1,147 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-model User {
-  id                 String   @id @default(cuid())
-  firstName          String
-  lastName           String
-  email              String   @unique
-  password           String
-  image              String?
-  role               UserRole @default(user)
-  hashedRefreshToken String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@map("users")
+enum AdminRole {
+  SUPER_ADMIN // full access, can manage other admins
+  BILLING_ADMIN // manage plans, tenants, subscriptions
+  SUPPORT_ADMIN // read-only + can view tenant data for troubleshooting
 }
 
-model Project {
-  id             String        @id @default(cuid())
-  title          String
-  description    String
-  tags           String[]      @default([])
-  image          String
-  liveUrl        String
-  backendLiveUrl String?
-  repoUrl        String?
-  backendRepoUrl String?
-  startingDate   String?
-  updateDate     String?
-  teamMember     Int
-  status         ProjectStatus @default(Pending)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@map("projects")
+enum RoleName {
+  OWNER
+  MANAGER
+  STAFF
+  SERVER
+  CHEF
+  CASHIER
+  RUNNER
+  BARTENDER
 }
 
-enum UserRole {
-  admin
-  user
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
 }
 
-enum ProjectStatus {
-  Pending
-  Starting
-  Completed
+model PlatformAdmin {
+  id                  String    @id @default(uuid())
+  name                String
+  email               String    @unique
+  password            String
+  role                AdminRole @default(SUPPORT_ADMIN)
+  isActive            Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  sessions  AdminSession[]
+  auditLogs AdminAuditLog[]
+
+  @@index([email])
+  @@map("platform_admins")
+}
+
+model AdminSession {
+  id               String        @id @default(uuid())
+  adminId          String
+  admin            PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  userAgent        String?
+  ip               String?
+  revokedAt        DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime      @default(now())
+
+  @@index([adminId])
+  @@map("admin_sessions")
+}
+
+model AdminAuditLog {
+  id         String        @id @default(cuid())
+  adminId    String
+  admin      PlatformAdmin @relation(fields: [adminId], references: [id])
+  action     String // "plan.create", "tenant.suspend", "subscription.override"
+  targetType String // "Tenant", "Plan", "Subscription"
+  targetId   String
+  metadata   Json? // before/after values
+  createdAt  DateTime      @default(now())
+
+  @@index([targetType, targetId])
+}
+
+model Plan {
+  id                  String     @id @default(cuid())
+  name                String // "Starter", "Pro", "Enterprise"
+  slug                String     @unique
+  description         String?
+  priceMonthly        Decimal
+  priceYearly         Decimal?
+  maxLocations        Int
+  maxStaffPerLocation Int
+  allowedRoles        RoleName[]
+  features            Json // { kds: true, onlineOrdering: false, advancedReports: true, apiAccess: false }
+  isActive            Boolean    @default(true)
+  isPublic            Boolean    @default(true) // false = custom/enterprise-only, not shown on pricing page
+  sortOrder           Int        @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id               String    @id @default(cuid())
+  tenantId         String    @unique
+  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  planId           String
+  plan             Plan      @relation(fields: [planId], references: [id])
+  status           SubStatus @default(TRIALING)
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+  canceledAt       DateTime?
+  stripeCustomerId String?
+  stripeSubId      String?
+
+  history SubscriptionHistory[]
+}
+
+// track every plan change — critical for support/billing disputes
+model SubscriptionHistory {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  fromPlanId     String?
+  toPlanId       String
+  changedById    String? // PlatformAdmin.id if manually changed, null if automated/self-serve
+  reason         String? // "upgrade", "downgrade", "admin_override", "billing_failure"
+  createdAt      DateTime     @default(now())
+}
+
+enum SubStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+}
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE) // ACTIVE, SUSPENDED, TRIAL
+  createdAt DateTime     @default(now())
+
+  subscription Subscription?
 }

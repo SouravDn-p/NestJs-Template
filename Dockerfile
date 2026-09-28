@@ -1,30 +1,33 @@
-FROM node:22-alpine AS base
+FROM node:22-alpine AS builder
+
 WORKDIR /app
-RUN apk add --no-cache openssl libc6-compat python3 make g++
 
-FROM base AS deps
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
+COPY package*.json ./
 RUN npm ci
-RUN npx prisma generate
 
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+COPY tsconfig*.json nest-cli.json ./
+COPY src ./src
+
+# prisma.config.ts requires DATABASE_URL even for generate
+ENV DATABASE_URL="postgresql://serv:serv-sd-password@postgres:5432/serv_db"
 RUN npx prisma generate
 RUN npm run build
 
-FROM base AS production
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
 ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
-RUN npm ci --omit=dev \
-  && npm install prisma@6.19.3 --no-save \
-  && npx prisma generate
-COPY --from=build /app/dist ./dist
-COPY docker/entrypoint.sh ./docker/entrypoint.sh
-RUN chmod +x ./docker/entrypoint.sh
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 5000
-ENTRYPOINT ["./docker/entrypoint.sh"]
-CMD ["node", "dist/main.js"]
+
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

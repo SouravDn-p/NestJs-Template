@@ -1,13 +1,7 @@
-import { UserRole } from '@prisma/client';
+import { SafeAdmin } from "../../modules/admin/admin-auth/types/admin.types.js";
 
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  role: UserRole;
-}
-
-export interface JwtUser {
-  userId: string;
-  email: string;
-  role: UserRole;
+export interface AdminAuthResult {
+    admin: SafeAdmin;
+    accessToken: string;
+    refreshToken: string;
 }
