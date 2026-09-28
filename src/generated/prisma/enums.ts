@@ -9,13 +9,21 @@
 * 🟢 You can import this file directly.
 */
 
-export const AdminRole = {
+export const Role = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   BILLING_ADMIN: 'BILLING_ADMIN',
-  SUPPORT_ADMIN: 'SUPPORT_ADMIN'
+  SUPPORT_ADMIN: 'SUPPORT_ADMIN',
+  OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
+  STAFF: 'STAFF',
+  SERVER: 'SERVER',
+  CHEF: 'CHEF',
+  CASHIER: 'CASHIER',
+  RUNNER: 'RUNNER',
+  BARTENDER: 'BARTENDER'
 } as const
 
-export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole]
+export type Role = (typeof Role)[keyof typeof Role]
 
 
 export const RoleName = {

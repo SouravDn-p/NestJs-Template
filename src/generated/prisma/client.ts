@@ -31,8 +31,8 @@ export * from "./enums.js"
  * const prisma = new PrismaClient({
  *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
  * })
- * // Fetch zero or more PlatformAdmins
- * const platformAdmins = await prisma.platformAdmin.findMany()
+ * // Fetch zero or more Users
+ * const users = await prisma.user.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -42,20 +42,20 @@ export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts exten
 export { Prisma }
 
 /**
- * Model PlatformAdmin
+ * Model User
  * 
  */
-export type PlatformAdmin = Prisma.PlatformAdminModel
+export type User = Prisma.UserModel
 /**
- * Model AdminSession
+ * Model Session
  * 
  */
-export type AdminSession = Prisma.AdminSessionModel
+export type Session = Prisma.SessionModel
 /**
- * Model AdminAuditLog
+ * Model AuditLog
  * 
  */
-export type AdminAuditLog = Prisma.AdminAuditLogModel
+export type AuditLog = Prisma.AuditLogModel
 /**
  * Model Plan
  * 

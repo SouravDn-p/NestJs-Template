@@ -51,9 +51,9 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-  PlatformAdmin: 'PlatformAdmin',
-  AdminSession: 'AdminSession',
-  AdminAuditLog: 'AdminAuditLog',
+  User: 'User',
+  Session: 'Session',
+  AuditLog: 'AuditLog',
   Plan: 'Plan',
   Subscription: 'Subscription',
   SubscriptionHistory: 'SubscriptionHistory',
@@ -76,7 +76,7 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const PlatformAdminScalarFieldEnum = {
+export const UserScalarFieldEnum = {
   id: 'id',
   name: 'name',
   email: 'email',
@@ -91,12 +91,12 @@ export const PlatformAdminScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type PlatformAdminScalarFieldEnum = (typeof PlatformAdminScalarFieldEnum)[keyof typeof PlatformAdminScalarFieldEnum]
+export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
-export const AdminSessionScalarFieldEnum = {
+export const SessionScalarFieldEnum = {
   id: 'id',
-  adminId: 'adminId',
+  userId: 'userId',
   refreshTokenHash: 'refreshTokenHash',
   userAgent: 'userAgent',
   ip: 'ip',
@@ -105,12 +105,12 @@ export const AdminSessionScalarFieldEnum = {
   createdAt: 'createdAt'
 } as const
 
-export type AdminSessionScalarFieldEnum = (typeof AdminSessionScalarFieldEnum)[keyof typeof AdminSessionScalarFieldEnum]
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
 
 
-export const AdminAuditLogScalarFieldEnum = {
+export const AuditLogScalarFieldEnum = {
   id: 'id',
-  adminId: 'adminId',
+  userId: 'userId',
   action: 'action',
   targetType: 'targetType',
   targetId: 'targetId',
@@ -118,7 +118,7 @@ export const AdminAuditLogScalarFieldEnum = {
   createdAt: 'createdAt'
 } as const
 
-export type AdminAuditLogScalarFieldEnum = (typeof AdminAuditLogScalarFieldEnum)[keyof typeof AdminAuditLogScalarFieldEnum]
+export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
 
 
 export const PlanScalarFieldEnum = {

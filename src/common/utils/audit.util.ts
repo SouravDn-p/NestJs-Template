@@ -1,33 +1,34 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../../services/prisma/prisma.service.js";
 
-export type AdminAuditParams = {
-    adminId: string;
-    action: string;
-    targetType: string;
-    targetId: string;
-    ip?: string;
-    metadata?: Record<string, unknown>;
+export type AuditParams = {
+  userId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  ip?: string;
+  metadata?: Record<string, unknown>;
 };
 
-export async function logAdminAction(
-    prisma: PrismaService,
-    params: AdminAuditParams,
+export async function logAction(
+  prisma: PrismaService,
+  params: AuditParams,
 ): Promise<void> {
-    const metadata: Prisma.InputJsonValue | undefined = params.metadata || params.ip
-        ? {
-            ...(params.metadata ?? {}),
-            ...(params.ip ? { ip: params.ip } : {}),
+  const metadata: Prisma.InputJsonValue | undefined =
+    params.metadata || params.ip
+      ? {
+          ...(params.metadata ?? {}),
+          ...(params.ip ? { ip: params.ip } : {}),
         }
-        : undefined;
+      : undefined;
 
-    await prisma.adminAuditLog.create({
-        data: {
-            adminId: params.adminId,
-            action: params.action,
-            targetType: params.targetType,
-            targetId: params.targetId,
-            metadata,
-        },
-    });
+  await prisma.auditLog.create({
+    data: {
+      userId: params.userId,
+      action: params.action,
+      targetType: params.targetType,
+      targetId: params.targetId,
+      metadata,
+    },
+  });
 }
