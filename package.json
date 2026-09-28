@@ -1,7 +1,7 @@
 {
-  "name": "Serv-server",
+  "name": "nest-template",
   "version": "0.0.1",
-  "description": "",
+  "description": "Nest Template API",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

@@ -1,8 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AppController } from "./app.controller.js";
+import { AppService } from "./app.service.js";
 
-describe('AppController', () => {
+describe("AppController", () => {
   let appController: AppController;
 
   beforeEach(async () => {
@@ -14,9 +14,11 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe("root", () => {
+    it("should return a success payload", () => {
+      const result = appController.getHello();
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ greeting: "Welcome to Nest Template" });
     });
   });
 });
