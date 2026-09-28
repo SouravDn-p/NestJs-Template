@@ -11,7 +11,7 @@ COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 
 # prisma.config.ts requires DATABASE_URL even for generate
-ENV DATABASE_URL="postgresql://serv:serv-sd-password@postgres:5432/serv_db"
+ENV DATABASE_URL="postgresql://postgres:postgres@postgres:5432/nest_template"
 RUN npx prisma generate
 RUN npm run build
 
